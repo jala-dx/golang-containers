@@ -1,0 +1,178 @@
+JGANAPAT-M-H0MN:master jganapat$ docker build -t masterimg .
+Sending build context to Docker daemon   5.12kB
+Step 1/5 : FROM golang:1.6-onbuild
+# Executing 3 build triggers...
+Step 1/1 : COPY . /go/src/app
+Step 1/1 : RUN go-wrapper download
+ ---> Running in 02307199e0e1
++ exec go get -v -d
+Step 1/1 : RUN go-wrapper install
+ ---> Running in e3807d97f784
++ exec go install -v
+app
+ ---> 21d3a05b6e50
+Removing intermediate container 7c0d6cec32b1
+Removing intermediate container 02307199e0e1
+Removing intermediate container e3807d97f784
+Step 2/5 : COPY . /go/src/app
+ ---> c3c9becc1d36
+Removing intermediate container d18d855e64a0
+Step 3/5 : RUN go get -d -v
+ ---> Running in db5bbdf800dd
+ ---> 27a4cb45019d
+Removing intermediate container db5bbdf800dd
+Step 4/5 : RUN go install -v
+ ---> Running in 8bc1e8a211b6
+ ---> 36abceca2c09
+Removing intermediate container 8bc1e8a211b6
+Step 5/5 : RUN echo "The result will be stored in the current folder, Please modify the yaml file to specify your own folder, in my case it is /Users/jganapat/go/src/part3 is mapped to containers /vol folder"
+ ---> Running in 7d4f84e6a84c
+The result will be stored in the current folder, Please modify the yaml file to specify your own folder, in my case it is /Users/jganapat/go/src/part3 is mapped to containers /vol folder
+ ---> baf733a41e7f
+Removing intermediate container 7d4f84e6a84c
+Successfully built baf733a41e7f
+Successfully tagged masterimg:latest
+JGANAPAT-M-H0MN:master jganapat$ 
+
+JGANAPAT-M-H0MN:slave jganapat$ docker build -t slaveimg .
+Sending build context to Docker daemon   7.68kB
+Step 1/4 : FROM golang:1.6-onbuild
+# Executing 3 build triggers...
+Step 1/1 : COPY . /go/src/app
+Step 1/1 : RUN go-wrapper download
+ ---> Running in f24d58dbe6b0
++ exec go get -v -d
+github.com/gorilla/mux (download)
+github.com/gorilla/context (download)
+Step 1/1 : RUN go-wrapper install
+ ---> Running in add592017442
++ exec go install -v
+github.com/gorilla/context
+github.com/gorilla/mux
+app
+ ---> 93b520691e36
+Removing intermediate container add592017442
+Removing intermediate container 6dfc980315a2
+Removing intermediate container f24d58dbe6b0
+Step 2/4 : COPY . /go/src/app
+ ---> f09161333a4b
+Removing intermediate container 411dadacb100
+Step 3/4 : RUN go get -d -v
+ ---> Running in 86a7d9a4d174
+ ---> af2e0a06d512
+Removing intermediate container 86a7d9a4d174
+Step 4/4 : RUN go install -v
+ ---> Running in 56da9a3ba9a0
+ ---> 6f5f6eb551b0
+Removing intermediate container 56da9a3ba9a0
+Successfully built 6f5f6eb551b0
+Successfully tagged slaveimg:latest
+JGANAPAT-M-H0MN:slave jganapat$ 
+
+NAPAT-M-H0MN:slave jganapat$ cd ../ubuntu/
+JGANAPAT-M-H0MN:ubuntu jganapat$ ls
+Dockerfile	script.sh
+JGANAPAT-M-H0MN:ubuntu jganapat$ docker build -t ubuntuimg .
+
+Sending build context to Docker daemon  3.072kB
+Step 1/3 : FROM ubuntu
+ ---> 14f60031763d
+Step 2/3 : COPY . /go/src/app
+ ---> 573b72f0bc9a
+Removing intermediate container fbeb37f6a1e1
+Step 3/3 : ENTRYPOINT /go/src/app/script.sh
+ ---> Running in 4fa52e4dd8ce
+ ---> a24d3c993e83
+Removing intermediate container 4fa52e4dd8ce
+Successfully built a24d3c993e83
+Successfully tagged ubuntuimg:latest
+JGANAPAT-M-H0MN:ubuntu jganapat$ 
+
+JGANAPAT-M-H0MN:ubuntu jganapat$ docker image ls
+REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+ubuntuimg           latest              a24d3c993e83        2 minutes ago       120MB
+slaveimg            latest              6f5f6eb551b0        4 minutes ago       758MB
+masterimg           latest              baf733a41e7f        6 minutes ago       757MB
+<none>              <none>              cf9c98d1a534        4 hours ago         749MB
+<none>              <none>              6b7983a7fc41        4 hours ago         757MB
+ubuntu              latest              14f60031763d        2 weeks ago         120MB
+golang              1.6-onbuild         c4f87d4e5dc0        6 months ago        749MB
+
+
+JGANAPAT-M-H0MN:part3 jganapat$ docker stack deploy --compose-file rpc-services.yaml rpc
+Creating network rpc_mynetwork
+Creating service rpc_mastersvc
+Creating service rpc_ubuntusvc
+Creating service rpc_slavesvc
+JGANAPAT-M-H0MN:part3 jganapat$ docker service ls
+ID                  NAME                MODE                REPLICAS            IMAGE               PORTS
+124ys13kex3n        rpc_ubuntusvc       replicated          1/1                 ubuntuimg:latest    
+8rsvu4fwu6e0        rpc_mastersvc       replicated          0/1                 masterimg:latest    
+x1a1hpmhwqlz        rpc_slavesvc        replicated          0/2                 slaveimg:latest     *:12345->12345/tcp
+JGANAPAT-M-H0MN:part3 jganapat$ docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                  PORTS               NAMES
+052ddbfee63b        slaveimg:latest     "go-wrapper run"         5 seconds ago       Up 2 seconds                                rpc_slavesvc.1.cmi6zi5yfel9sa6iro0lr3t0c
+efa2e9d810ef        slaveimg:latest     "go-wrapper run"         5 seconds ago       Up 2 seconds                                rpc_slavesvc.2.p7ix8v8fdqe1azge9k30m7mjh
+2b397ca542e8        masterimg:latest    "go-wrapper run"         5 seconds ago       Up Less than a second                       rpc_mastersvc.1.ezkqn5h4dwu9vbxy8vabplaq4
+384e1b503e8d        ubuntuimg:latest    "/go/src/app/scrip..."   7 seconds ago       Up 5 seconds                                rpc_ubuntusvc.1.wbobygg717on41rgcerb7htcy
+JGANAPAT-M-H0MN:part3 jganapat$ cat mlog
+docker service logs --follow rpc_mastersvc
+
+
+JGANAPAT-M-H0MN:part3 jganapat$ docker service logs --follow rpc_slavesvc
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | + exec app
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | + exec app
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | Entering createFileList ...
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | Entering createFileList ...
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | 3
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | 3
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | [moby-001.txt moby-002.txt]
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | [moby-001.txt moby-002.txt]
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | 6
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | 134
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | Entering createFileList ...
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | Entering createFileList ...
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | 135
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | 7
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | [moby-006.txt]
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | [moby-134.txt]
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | [moby-134.txt]
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | [moby-006.txt]
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | http://www.gutenberg.org/files/15/text/moby-006.txt
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | 76
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | http://www.gutenberg.org/files/15/text/moby-134.txt
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | 13
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | Entering createFileList ...
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | Entering createFileList ...
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | 77
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | 14
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | [moby-013.txt]
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | [moby-076.txt]
+rpc_slavesvc.1.cmi6zi5yfel9@moby    | [moby-076.txt]
+rpc_slavesvc.2.p7ix8v8fdqe1@moby    | [moby-013.txt]
+
+
+JGANAPAT-M-H0MN:part3 jganapat$ ls
+cmp			mlog			rpc-services.yaml	ubuntu
+master			part3-output.txt	slave			unit-test-logs
+JGANAPAT-M-H0MN:part3 jganapat$ cat part3-output.txt | more
+106                      :00001
+hearties                 :00004
+profundity               :00002
+--not                    :00015
+inclined                 :00009
+adhesiveness             :00001
+129                      :00002
+shop                     :00003
+emblematical             :00002
+434                      :00001
+146                      :00001
+saddest                  :00004
+intensity                :00008
+showing                  :00005
+robe                     :00003
+defined                  :00004
+subtler                  :00001
+scabbards                :00001
+sultanism                :00002
+

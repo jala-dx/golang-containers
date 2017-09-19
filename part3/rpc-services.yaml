@@ -1,0 +1,36 @@
+
+version: "3.1"
+
+networks:
+   mynetwork:
+
+services:
+  slavesvc:
+    image: slaveimg
+    networks:
+      - mynetwork
+    ports:
+      - 12345:12345
+    deploy:
+      replicas: 2
+
+  mastersvc:
+    image: masterimg
+    networks:
+      - mynetwork
+    deploy:
+      replicas: 1
+    depends_on:
+      - slavesvc
+    volumes:
+      - /Users/jganapat/go/src/part3:/vol
+
+  ubuntusvc:
+    image: ubuntuimg
+    networks:
+      - mynetwork
+    deploy:
+      replicas: 1
+    #volumes:
+    #  - /Users/jganapat/go/src/part3:/vol
+
